@@ -1,10 +1,10 @@
 use glob::glob;
 use object_trustfall_adapter::loader::load_object;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use serde::{Serialize, Deserialize};
+use std::{fs, io};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EventLog {
@@ -57,7 +57,7 @@ pub struct Trace {
 /// of it's `TraceMap` format. This has lines of code mapped to addresses via the debug
 /// information. So I'm going to run tarpaulin on the project, there are no tests in any of the
 /// projects so the part where tarpaulin runs the tests should be "fast". Then I grab the
-/// executables, the tracemap and get to work comparing it with the adapters outputs. 
+/// executables, the tracemap and get to work comparing it with the adapters outputs.
 ///
 /// Assumptions:
 ///
@@ -66,19 +66,29 @@ fn check_addresses_match(path: &Path) {
     let traces_json = path.join("*.json").display().to_string();
     let delta_json = path.join("target/tarpaulin/*.json").display().to_string();
     // We need to clean up after ourselves!
-    for path in glob(&traces_json).unwrap().chain(glob(&delta_json).unwrap()).filter_map(|x| x.ok()) {
+    for path in glob(&traces_json)
+        .unwrap()
+        .chain(glob(&delta_json).unwrap())
+        .filter_map(|x| x.ok())
+    {
         fs::remove_file(&path).unwrap();
     }
 
     Command::new("cargo")
-        .args(["tarpaulin", "--engine", "ptrace", "--dump-traces", "--skip-clean"])
+        .args([
+            "tarpaulin",
+            "--engine",
+            "ptrace",
+            "--dump-traces",
+            "--skip-clean",
+        ])
         .current_dir(path)
         .output()
         .unwrap();
 
     // Okay now in the root there's a traces json with the executables. There's also a json in the
     // target directory!
-    
+
     let traces_json = glob(&traces_json).unwrap().next().unwrap().unwrap();
     let delta_json = glob(&delta_json).unwrap().next().unwrap().unwrap();
 
@@ -95,8 +105,13 @@ fn check_addresses_match(path: &Path) {
         }
     }
     let to_analyse = to_analyse.unwrap();
-    
+
+    println!("Loading: {:?}", to_analyse);
     let object = load_object(&to_analyse).unwrap();
+
+    let file = fs::File::create(path.join("object.json")).unwrap();
+    let mut writer = io::BufWriter::new(file);
+    serde_json::to_writer_pretty(&mut writer, &object).unwrap();
 }
 
 #[test]

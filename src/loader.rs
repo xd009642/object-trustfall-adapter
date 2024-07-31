@@ -1,11 +1,11 @@
 use anyhow::Context;
-use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
 use gimli::*;
-use object::{Object, read::ObjectSection};
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::fs;
+use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
+use object::{read::ObjectSection, Object};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DecodedInstruction {
@@ -43,7 +43,7 @@ pub fn load_object(path: impl AsRef<Path>) -> anyhow::Result<ObjectFile> {
     for section in file.sections() {
         let name = match section.name() {
             Ok(s) => s,
-            Err(e) => continue
+            Err(e) => continue,
         };
         if name == ".text" {
             let EXAMPLE_CODE_RIP = 0;
@@ -59,7 +59,7 @@ pub fn load_object(path: impl AsRef<Path>) -> anyhow::Result<ObjectFile> {
 }
 
 fn decode_instructions(bytes: &[u8]) -> Vec<DecodedInstruction> {
-    let mut decoded_instructions = vec![]; 
+    let mut decoded_instructions = vec![];
     let mut decoder = Decoder::with_ip(64, bytes, 0, DecoderOptions::NONE);
 
     // Formatters: Masm*, Nasm*, Gas* (AT&T) and Intel* (XED).
@@ -94,14 +94,17 @@ fn decode_instructions(bytes: &[u8]) -> Vec<DecodedInstruction> {
         // Eg. "00007FFAC46ACDB2 488DAC2400FFFFFF     lea       rbp,[rsp-100h]"
         let instr = output.split_whitespace().collect::<Vec<_>>();
         let operands = if instr.len() > 1 {
-            instr[1].split(',').map(|x| x.to_string()).collect::<Vec<String>>()
+            instr[1]
+                .split(',')
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>()
         } else {
             vec![]
         };
         decoded_instructions.push(DecodedInstruction {
             address: instruction.ip() as _,
             name: instr[0].to_string(),
-            operands
+            operands,
         });
     }
     decoded_instructions
@@ -120,12 +123,11 @@ where
     let (cprog, seq) = prog.sequences()?;
     for s in seq {
         let mut sm = cprog.resume_from(&s);
+        println!("{:?}", s);
         while let Ok(Some((header, &ln_row))) = sm.next_row() {
-            if ln_row.end_sequence() {
-                break;
-            }
             // If this row isn't useful move on
             if !ln_row.is_stmt() || ln_row.line().is_none() {
+                println!("Useless: {:?}", ln_row);
                 continue;
             }
             if let Some(file) = ln_row.file(header) {
@@ -135,19 +137,19 @@ where
                         path.push(temp);
                     }
                 }
-                if let Some(file) = file.path_name().string_value(debug_strs).and_then(get_string) {
+                if let Some(file) = file
+                    .path_name()
+                    .string_value(debug_strs)
+                    .and_then(get_string)
+                {
                     path.push(file);
-                    if !path.is_file() {
-                        // Not really a source file!
-                        continue;
-                    }
                     let line = ln_row.line().unwrap();
                     let column = match ln_row.column() {
                         ColumnType::LeftEdge => 1, // Columns aren't zero-indexed
                         ColumnType::Column(nz) => nz.get() as usize,
                     };
                     let address = ln_row.address() as usize;
-                    if address > 0 && path.display().to_string().contains("loader.rs") {
+                    if address > 0 {
                         let loc = SourceLocation {
                             file: path.into(),
                             line: line.get() as usize,
@@ -170,15 +172,21 @@ fn get_line_addresses<'data>(
     } else {
         RunTimeEndian::Big
     };
-    let debug_info = obj.section_by_name(".debug_info").context("No debug_info")?;
+    let debug_info = obj
+        .section_by_name(".debug_info")
+        .context("No debug_info")?;
     let debug_info = DebugInfo::new(debug_info.data()?, endian);
-    let debug_abbrev = obj.section_by_name(".debug_abbrev").context("No debug_abbrev")?;
+    let debug_abbrev = obj
+        .section_by_name(".debug_abbrev")
+        .context("No debug_abbrev")?;
     let debug_abbrev = DebugAbbrev::new(debug_abbrev.data()?, endian);
     let debug_strings = obj.section_by_name(".debug_str").context("No debug_str")?;
     let debug_strings = DebugStr::new(debug_strings.data()?, endian);
-    let debug_line = obj.section_by_name(".debug_line").context("No debug_line")?;
+    let debug_line = obj
+        .section_by_name(".debug_line")
+        .context("No debug_line")?;
     let debug_line = DebugLine::new(debug_line.data()?, endian);
-    
+
     let mut iter = debug_info.units();
     let mut result = BTreeMap::new();
     while let Ok(Some(cu)) = iter.next() {
@@ -187,7 +195,7 @@ fn get_line_addresses<'data>(
             Ok(a) => a,
             _ => continue,
         };
-        
+
         if let Ok(Some((_, root))) = cu.entries(&abbr).next_dfs() {
             let offset = match root.attr_value(DW_AT_stmt_list) {
                 Ok(Some(AttributeValue::DebugLineRef(o))) => o,
@@ -195,9 +203,7 @@ fn get_line_addresses<'data>(
             };
             let prog = debug_line.program(offset, addr_size, None, None)?; // Here?
 
-            if let Err(e) =
-                get_addresses_from_program(prog, &debug_strings, &mut result)
-            {
+            if let Err(e) = get_addresses_from_program(prog, &debug_strings, &mut result) {
                 eprintln!("Potential issue reading test addresses {}", e);
             }
         }
