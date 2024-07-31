@@ -1,0 +1,1 @@
+# object-trustfall-adapter
