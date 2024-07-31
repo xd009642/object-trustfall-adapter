@@ -15,7 +15,7 @@ pub struct DecodedInstruction {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct SourceLocation {
+pub struct SourceLocation {
     pub file: PathBuf,
     pub line: usize,
     pub column: usize,
@@ -43,11 +43,9 @@ pub fn load_object(path: impl AsRef<Path>) -> anyhow::Result<ObjectFile> {
     for section in file.sections() {
         let name = match section.name() {
             Ok(s) => s,
-            Err(e) => continue,
+            Err(_e) => continue,
         };
         if name == ".text" {
-            let EXAMPLE_CODE_RIP = 0;
-            const HEXBYTES_COLUMN_BYTE_LENGTH: usize = 10;
             let bytes = section.data()?;
             text_section = decode_instructions(bytes);
         }

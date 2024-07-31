@@ -45,9 +45,9 @@ pub struct TraceMap {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 pub struct Trace {
     /// Line the trace is on in the file
-    pub line: u64,
+    pub line: usize,
     /// Optional address showing location in the test artefact
-    pub address: Vec<u64>,
+    pub address: Vec<usize>,
     /// Length of the instruction (useful to get entire condition/branch)
     pub length: usize,
 }
@@ -97,6 +97,9 @@ fn check_addresses_match(path: &Path) {
     let traces = fs::read(traces_json).unwrap();
     let traces: EventLog = serde_json::from_slice(&traces).unwrap();
 
+    let trace_map = fs::read(delta_json).unwrap();
+    let trace_map: TraceMap = serde_json::from_slice(&trace_map).unwrap();
+
     let mut to_analyse = None;
     for event in traces.events.iter() {
         if let Event::BinaryLaunch(bin) = &event.event {
@@ -109,6 +112,33 @@ fn check_addresses_match(path: &Path) {
     println!("Loading: {:?}", to_analyse);
     let object = load_object(&to_analyse).unwrap();
 
+    let mut actually_checked_something = false;
+
+    for (path, traces) in trace_map.traces.iter() {
+        // So far the paths in this adapter aren't forced into absolute ones - mainly because we
+        // may not have the source code on our system so attempts to do so may break things. So
+        // I'll just be doing ends_with type checking.
+        println!("Processing file: {}", path.display());
+        for trace in traces {
+            println!("Assessing: {:?}", trace);
+            for address in &trace.address {
+                let locations = object.debug_info.get(address).unwrap();
+                assert!(
+                    locations
+                        .iter()
+                        .find(|x| x.line == trace.line && path.ends_with(&x.file))
+                        .is_some(),
+                    "Couldn't find location out of: {:?}",
+                    locations
+                );
+                actually_checked_something |= !locations.is_empty();
+            }
+        }
+    }
+
+    assert!(actually_checked_something);
+
+    // Save a lil dump just to make sure.
     let file = fs::File::create(path.join("object.json")).unwrap();
     let mut writer = io::BufWriter::new(file);
     serde_json::to_writer_pretty(&mut writer, &object).unwrap();
