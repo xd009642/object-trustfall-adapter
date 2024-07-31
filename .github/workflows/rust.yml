@@ -20,8 +20,8 @@ jobs:
         with:
           toolchain: ${{ matrix.version }}
           components: rustfmt
+      - uses: cargo-bins/cargo-binstall@main
       - name: tarpaulin_install
-        uses: cargo-bins/cargo-binstall@main
         run: cargo binstall cargo-tarpaulin
       - name: test
         run: cargo test
