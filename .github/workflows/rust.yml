@@ -25,6 +25,8 @@ jobs:
         run: cargo binstall -y cargo-tarpaulin
       - name: test
         run: cargo test
+      - name: examples
+        run: cargo check --examples
       - name: check formatting
         run: cargo fmt -- --check
 

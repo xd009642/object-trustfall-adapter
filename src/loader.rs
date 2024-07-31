@@ -12,6 +12,7 @@ pub struct DecodedInstruction {
     pub address: usize,
     pub name: String,
     pub operands: Vec<String>,
+    pub length: usize,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -27,33 +28,41 @@ pub struct ObjectFile {
     pub text_section: Vec<DecodedInstruction>,
 }
 
-pub fn load_object(path: impl AsRef<Path>) -> anyhow::Result<ObjectFile> {
-    let data = fs::read(path)?;
-    let file = object::File::parse(&*data)?;
+impl ObjectFile {
+    pub fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let data = fs::read(path)?;
+        let file = object::File::parse(&*data)?;
 
-    let debug_info = match get_line_addresses(&file) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("No debug info: {}", e);
-            Default::default()
-        }
-    };
-
-    let mut text_section = vec![];
-    for section in file.sections() {
-        let name = match section.name() {
+        let debug_info = match get_line_addresses(&file) {
             Ok(s) => s,
-            Err(_e) => continue,
+            Err(e) => {
+                eprintln!("No debug info: {}", e);
+                Default::default()
+            }
         };
-        if name == ".text" {
-            let bytes = section.data()?;
-            text_section = decode_instructions(bytes);
+
+        let mut text_section = vec![];
+        for section in file.sections() {
+            let name = match section.name() {
+                Ok(s) => s,
+                Err(_e) => continue,
+            };
+            if name == ".text" {
+                let bytes = section.data()?;
+                text_section = decode_instructions(bytes);
+            }
         }
+        Ok(ObjectFile {
+            debug_info,
+            text_section,
+        })
     }
-    Ok(ObjectFile {
-        debug_info,
-        text_section,
-    })
+
+    pub fn find_instruction(&self, address: usize) -> Option<&DecodedInstruction> {
+        self.text_section
+            .iter()
+            .find(|x| x.address >= address && address < (x.address - x.length))
+    }
 }
 
 fn decode_instructions(bytes: &[u8]) -> Vec<DecodedInstruction> {
@@ -102,6 +111,7 @@ fn decode_instructions(bytes: &[u8]) -> Vec<DecodedInstruction> {
         decoded_instructions.push(DecodedInstruction {
             address: instruction.ip() as _,
             name: instr[0].to_string(),
+            length: instruction.len(),
             operands,
         });
     }

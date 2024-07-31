@@ -1,5 +1,5 @@
 use glob::glob;
-use object_trustfall_adapter::loader::load_object;
+use object_trustfall_adapter::loader::ObjectFile;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -110,7 +110,7 @@ fn check_addresses_match(path: &Path) {
     let to_analyse = to_analyse.unwrap();
 
     println!("Loading: {:?}", to_analyse);
-    let object = load_object(&to_analyse).unwrap();
+    let object = ObjectFile::load(&to_analyse).unwrap();
 
     let mut actually_checked_something = false;
 
@@ -132,6 +132,9 @@ fn check_addresses_match(path: &Path) {
                     locations
                 );
                 actually_checked_something |= !locations.is_empty();
+
+                // We also want to see that we have an instruction for it!
+                object.find_instruction(*address).unwrap();
             }
         }
     }
