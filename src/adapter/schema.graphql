@@ -1,0 +1,50 @@
+schema {
+    query: RootSchemaQuery 
+}
+
+type RootSchemaQuery {
+    text_section: [DecodedInstruction!]!
+
+    getInstruction(address: Int!): DecodedInstruction
+
+    debug_info: [SourceLocation!]!
+    
+    getLocation(address: Int!): SourceLocation
+    getFileLocations(file: String!): [SourceLocation]
+    getFileInstructions(file: String!): [DecodedInstruction]
+
+}
+
+type SourceLocation {
+    """
+    The name of the source code file
+    """
+    file: String!
+    """
+    The start line of the location
+    """
+    line: Int!
+    """
+    The column used - or null if this is a leftmost column
+    """
+    column: Int
+}
+
+type DecodedInstruction {
+    """
+    Address in memory of the instruction (this is the same as the Instruction Pointer)
+    """
+    address: Int!
+    """
+    Name of the instruction (in NASM)
+    """
+    name: String!
+    """
+    Operands of the instruction
+    """
+    operands: [String]
+    """
+    Length of the instruction in bytes
+    """
+    length: Int!
+}
