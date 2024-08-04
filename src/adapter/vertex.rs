@@ -1,6 +1,9 @@
+use crate::loader::SourceLocation;
+use iced_x86::Instruction;
+
 #[non_exhaustive]
 #[derive(Debug, Clone, trustfall::provider::TrustfallEnumVertex)]
 pub enum Vertex {
-    DecodedInstruction(()),
-    SourceLocation(()),
+    DecodedInstruction(Instruction),
+    SourceLocation(SourceLocation),
 }

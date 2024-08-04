@@ -47,7 +47,7 @@ pub struct Trace {
     /// Line the trace is on in the file
     pub line: usize,
     /// Optional address showing location in the test artefact
-    pub address: Vec<usize>,
+    pub address: Vec<u64>,
     /// Length of the instruction (useful to get entire condition/branch)
     pub length: usize,
 }

@@ -10,9 +10,7 @@ pub(super) fn get_file_instructions<'a>(
     file: &str,
     _resolve_info: &ResolveInfo,
 ) -> VertexIterator<'a, Vertex> {
-    todo!(
-        "implement resolving starting vertices for entrypoint edge 'getFileInstructions'"
-    )
+    todo!("implement resolving starting vertices for entrypoint edge 'getFileInstructions'")
 }
 
 pub(super) fn get_file_locations<'a>(
@@ -36,8 +34,6 @@ pub(super) fn get_location<'a>(
     todo!("implement resolving starting vertices for entrypoint edge 'getLocation'")
 }
 
-pub(super) fn text_section<'a>(
-    _resolve_info: &ResolveInfo,
-) -> VertexIterator<'a, Vertex> {
+pub(super) fn text_section<'a>(_resolve_info: &ResolveInfo) -> VertexIterator<'a, Vertex> {
     todo!("implement resolving starting vertices for entrypoint edge 'text_section'")
 }

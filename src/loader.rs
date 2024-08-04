@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DecodedInstruction {
-    pub address: usize,
+    pub address: u64,
     pub name: String,
     pub operands: Vec<String>,
     pub length: usize,
@@ -24,8 +24,8 @@ pub struct SourceLocation {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ObjectFile {
-    pub debug_info: BTreeMap<usize, Vec<SourceLocation>>, // Address to code region
-    pub text_section: Vec<DecodedInstruction>,
+    pub debug_info: BTreeMap<u64, Vec<SourceLocation>>, // Address to code region
+    pub text_section: Vec<Instruction>,
 }
 
 impl ObjectFile {
@@ -58,70 +58,22 @@ impl ObjectFile {
         })
     }
 
-    pub fn find_instruction(&self, address: usize) -> Option<&DecodedInstruction> {
+    pub fn find_instruction(&self, address: u64) -> Option<&Instruction> {
         self.text_section
             .iter()
-            .find(|x| x.address >= address && address < (x.address - x.length))
+            .find(|x| x.ip() >= address && address < (x.ip() - x.len() as u64))
     }
 }
 
-fn decode_instructions(bytes: &[u8]) -> Vec<DecodedInstruction> {
-    let mut decoded_instructions = vec![];
-    let mut decoder = Decoder::with_ip(64, bytes, 0, DecoderOptions::NONE);
-
-    // Formatters: Masm*, Nasm*, Gas* (AT&T) and Intel* (XED).
-    // For fastest code, see `SpecializedFormatter` which is ~3.3x faster. Use it if formatting
-    // speed is more important than being able to re-assemble formatted instructions.
-    let mut formatter = NasmFormatter::new();
-
-    // Change some options, there are many more
-    formatter.options_mut().set_first_operand_char_index(10);
-
-    // String implements FormatterOutput
-    let mut output = String::new();
-
-    // Initialize this outside the loop because decode_out() writes to every field
-    let mut instruction = Instruction::default();
-
-    // The decoder also implements Iterator/IntoIterator so you could use a for loop:
-    //      for instruction in &mut decoder { /* ... */ }
-    // or collect():
-    //      let instructions: Vec<_> = decoder.into_iter().collect();
-    // but can_decode()/decode_out() is a little faster:
-    while decoder.can_decode() {
-        // There's also a decode() method that returns an instruction but that also
-        // means it copies an instruction (40 bytes):
-        //     instruction = decoder.decode();
-        decoder.decode_out(&mut instruction);
-
-        // Format the instruction ("disassemble" it)
-        output.clear();
-        formatter.format(&instruction, &mut output);
-
-        // Eg. "00007FFAC46ACDB2 488DAC2400FFFFFF     lea       rbp,[rsp-100h]"
-        let instr = output.split_whitespace().collect::<Vec<_>>();
-        let operands = if instr.len() > 1 {
-            instr[1]
-                .split(',')
-                .map(|x| x.to_string())
-                .collect::<Vec<String>>()
-        } else {
-            vec![]
-        };
-        decoded_instructions.push(DecodedInstruction {
-            address: instruction.ip() as _,
-            name: instr[0].to_string(),
-            length: instruction.len(),
-            operands,
-        });
-    }
-    decoded_instructions
+fn decode_instructions(bytes: &[u8]) -> Vec<Instruction> {
+    let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
+    decoder.iter().collect()
 }
 
 fn get_addresses_from_program<R, Offset>(
     prog: IncompleteLineProgram<R>,
     debug_strs: &DebugStr<R>,
-    result: &mut BTreeMap<usize, Vec<SourceLocation>>,
+    result: &mut BTreeMap<u64, Vec<SourceLocation>>,
 ) -> Result<()>
 where
     R: Reader<Offset = Offset>,
@@ -131,7 +83,6 @@ where
     let (cprog, seq) = prog.sequences()?;
     for s in seq {
         let mut sm = cprog.resume_from(&s);
-        println!("{:?}", s);
         while let Ok(Some((header, &ln_row))) = sm.next_row() {
             // If this row isn't useful move on
             if !ln_row.is_stmt() || ln_row.line().is_none() {
@@ -156,7 +107,7 @@ where
                         ColumnType::LeftEdge => 1, // Columns aren't zero-indexed
                         ColumnType::Column(nz) => nz.get() as usize,
                     };
-                    let address = ln_row.address() as usize;
+                    let address = ln_row.address();
                     if address > 0 {
                         let loc = SourceLocation {
                             file: path.into(),
@@ -174,7 +125,7 @@ where
 
 fn get_line_addresses<'data>(
     obj: &'data impl object::read::Object<'data>,
-) -> anyhow::Result<BTreeMap<usize, Vec<SourceLocation>>> {
+) -> anyhow::Result<BTreeMap<u64, Vec<SourceLocation>>> {
     let endian = if obj.is_little_endian() {
         RunTimeEndian::Little
     } else {
