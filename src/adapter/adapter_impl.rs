@@ -1,5 +1,15 @@
+use super::vertex::Vertex;
+use super::SourceLocation;
+use crate::loader::*;
+use anyhow::Context;
+use gimli::*;
+use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
+use object::{read::ObjectSection, Object};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
-
 use trustfall::{
     provider::{
         resolve_coercion_using_schema, resolve_property_with, AsVertex, ContextIterator,
@@ -9,13 +19,14 @@ use trustfall::{
     FieldValue, Schema,
 };
 
-use super::vertex::Vertex;
-
 static SCHEMA: OnceLock<Schema> = OnceLock::new();
 
 #[non_exhaustive]
-#[derive(Debug)]
-pub struct Adapter {}
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct Adapter {
+    pub debug_info: BTreeMap<u64, Vec<SourceLocation>>, // Address to code region
+    pub text_section: Vec<Instruction>,
+}
 
 impl Adapter {
     pub const SCHEMA_TEXT: &'static str = include_str!("./schema.graphql");
@@ -25,7 +36,54 @@ impl Adapter {
     }
 
     pub fn new() -> Self {
-        Self {}
+        Self::default()
+    }
+
+    pub fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
+        let data = fs::read(path)?;
+        let file = object::File::parse(&*data)?;
+
+        let debug_info = match get_line_addresses(&file) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("No debug info: {}", e);
+                Default::default()
+            }
+        };
+
+        let mut text_section = vec![];
+        for section in file.sections() {
+            let name = match section.name() {
+                Ok(s) => s,
+                Err(_e) => continue,
+            };
+            if name == ".text" {
+                let bytes = section.data()?;
+                let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
+                text_section = decoder.iter().collect();
+            }
+        }
+        Ok(Self {
+            debug_info,
+            text_section,
+        })
+    }
+
+    pub fn find_instruction(&self, address: u64) -> Option<&Instruction> {
+        self.text_section
+            .iter()
+            .find(|x| x.ip() >= address && address < (x.ip() - x.len() as u64))
+    }
+
+    pub fn get_file_locations(&self, path: impl AsRef<Path>) -> Vec<&SourceLocation> {
+        self.debug_info
+            .values()
+            .flat_map(|x| x.iter().filter(|y| y.file.as_path() == path.as_ref()))
+            .collect()
+    }
+
+    pub fn get_file_instructions(&self) -> Vec<&Instruction> {
+        todo!()
     }
 }
 

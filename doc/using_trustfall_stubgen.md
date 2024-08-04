@@ -43,3 +43,6 @@ this approach is still right but having some comments in the generated code
 would help. I guess the default approach is adapters on APIs to glue all those
 data sources together rather than static assets already on the filesystem that
 we may load.
+
+Calling the adapter type adapter all the time seems like a name collision faff
+if I was to bring in other adapter crates for different data souces :thinking:

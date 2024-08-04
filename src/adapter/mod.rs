@@ -1,3 +1,6 @@
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
 mod adapter_impl;
 mod edges;
 mod entrypoints;
@@ -9,3 +12,10 @@ mod tests;
 
 pub use adapter_impl::Adapter;
 pub use vertex::Vertex;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SourceLocation {
+    pub file: PathBuf,
+    pub line: usize,
+    pub column: usize,
+}

@@ -1,3 +1,4 @@
+use crate::adapter::SourceLocation;
 use anyhow::Context;
 use gimli::*;
 use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
@@ -15,62 +16,7 @@ pub struct DecodedInstruction {
     pub length: usize,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SourceLocation {
-    pub file: PathBuf,
-    pub line: usize,
-    pub column: usize,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct ObjectFile {
-    pub debug_info: BTreeMap<u64, Vec<SourceLocation>>, // Address to code region
-    pub text_section: Vec<Instruction>,
-}
-
-impl ObjectFile {
-    pub fn load(path: impl AsRef<Path>) -> anyhow::Result<Self> {
-        let data = fs::read(path)?;
-        let file = object::File::parse(&*data)?;
-
-        let debug_info = match get_line_addresses(&file) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("No debug info: {}", e);
-                Default::default()
-            }
-        };
-
-        let mut text_section = vec![];
-        for section in file.sections() {
-            let name = match section.name() {
-                Ok(s) => s,
-                Err(_e) => continue,
-            };
-            if name == ".text" {
-                let bytes = section.data()?;
-                text_section = decode_instructions(bytes);
-            }
-        }
-        Ok(ObjectFile {
-            debug_info,
-            text_section,
-        })
-    }
-
-    pub fn find_instruction(&self, address: u64) -> Option<&Instruction> {
-        self.text_section
-            .iter()
-            .find(|x| x.ip() >= address && address < (x.ip() - x.len() as u64))
-    }
-}
-
-fn decode_instructions(bytes: &[u8]) -> Vec<Instruction> {
-    let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
-    decoder.iter().collect()
-}
-
-fn get_addresses_from_program<R, Offset>(
+pub(crate) fn get_addresses_from_program<R, Offset>(
     prog: IncompleteLineProgram<R>,
     debug_strs: &DebugStr<R>,
     result: &mut BTreeMap<u64, Vec<SourceLocation>>,
@@ -123,7 +69,7 @@ where
     Ok(())
 }
 
-fn get_line_addresses<'data>(
+pub(crate) fn get_line_addresses<'data>(
     obj: &'data impl object::read::Object<'data>,
 ) -> anyhow::Result<BTreeMap<u64, Vec<SourceLocation>>> {
     let endian = if obj.is_little_endian() {

@@ -1,5 +1,5 @@
 use glob::glob;
-use object_trustfall_adapter::loader::ObjectFile;
+use object_trustfall_adapter::adapter::Adapter as ObjectFile;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
