@@ -46,3 +46,82 @@ we may load.
 
 Calling the adapter type adapter all the time seems like a name collision faff
 if I was to bring in other adapter crates for different data souces :thinking:
+
+## Implementing
+
+### Vertex
+
+Doing the vertex implementation is fairly straightforward, I put my crate
+internal types into the enum as fields. One thing not mentioned is that
+making the types cheap to clone `Rc` is recognised - although this is
+strongly signalled by the enum deriving clone and not copy.
+
+### Properties
+
+The properties seems the easiest to implement, though for each field
+I ended up crafting a lambda and mapping it in the iterator. So I make a lambda
+like so:
+
+```rust
+|v: DataContext<V>| match v.active_vertex() {
+    Some(Vertex::Expected(e) => (v.clone(), FieldValue::Ty(e.val)),
+    None => (v, FieldValue::Null),
+    Some(v) => unreachable!("Incorrect vertex: {:?}", v),
+}
+```
+
+And then taking the `ContextIterator<'a, V>` running:
+
+```rust
+Box::new(contexts.map(func))
+```
+
+We can see my initial implementation of the `SourceLocation` property below:
+
+```rust
+pub(super) fn resolve_source_location_property<'a, V: AsVertex<Vertex> + 'a>(
+    contexts: ContextIterator<'a, V>,
+    property_name: &str,
+    _resolve_info: &ResolveInfo,
+) -> ContextOutcomeIterator<'a, V, FieldValue> {
+    let func = match property_name {
+        "column" => |v: DataContext<V>| match v.active_vertex() {
+            Some(Vertex::SourceLocation(loc)) => (v.clone(), FieldValue::Uint64(loc.column as u64)),
+            None => (v, FieldValue::Null),
+            Some(vertex) => unreachable!("Invalid vertex: {:?}", vertex),
+        },
+        "file" => |v: DataContext<V>| match v.active_vertex() {
+            Some(Vertex::SourceLocation(loc)) => (
+                v.clone(),
+                FieldValue::String(Arc::from(loc.file.display().to_string().as_str())),
+            ),
+            None => (v, FieldValue::Null),
+            Some(vertex) => unreachable!("Invalid vertex: {:?}", vertex),
+        },
+        "line" => |v: DataContext<V>| match v.active_vertex() {
+            Some(Vertex::SourceLocation(loc)) => (v.clone(), FieldValue::Uint64(loc.line as u64)),
+            None => (v, FieldValue::Null),
+            Some(vertex) => unreachable!("Invalid vertex: {:?}", vertex),
+        },
+        _ => {
+            unreachable!(
+                "attempted to read unexpected property '{property_name}' on type 'SourceLocation'"
+            )
+        }
+    };
+    Box::new(contexts.map(func))
+}
+```
+
+I'm not yet sure if this is the correct approach, but that's more noobiness with
+trustfall. It seems reasonable, though I'm sure I could simplify the code a bit
+further.
+
+Oh implementing all of these causes the tests to pass despite me not
+implementing the queries. This makes sense as I was wondering just how deep the
+invariant test can go as it can't feasibly test query behaviour. Maybe smart to
+document this very explicitly. That way anyone implementing their queries first
+then properties doesn't think they've got more guarantees from the tests than
+they really do. Oh I can put a TODO in one of my match arms and it passes the
+test so the properties don't even have to be fully implemented! Yeah good to
+note this more in depth.

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 use trustfall::{
     provider::{
@@ -25,7 +26,7 @@ static SCHEMA: OnceLock<Schema> = OnceLock::new();
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Adapter {
     pub debug_info: BTreeMap<u64, Vec<SourceLocation>>, // Address to code region
-    pub text_section: Vec<Instruction>,
+    pub text_section: Vec<Rc<Instruction>>,
 }
 
 impl Adapter {
@@ -60,7 +61,7 @@ impl Adapter {
             if name == ".text" {
                 let bytes = section.data()?;
                 let mut decoder = Decoder::new(64, bytes, DecoderOptions::NONE);
-                text_section = decoder.iter().collect();
+                text_section = decoder.iter().map(Rc::new).collect();
             }
         }
         Ok(Self {
@@ -69,10 +70,11 @@ impl Adapter {
         })
     }
 
-    pub fn find_instruction(&self, address: u64) -> Option<&Instruction> {
+    pub fn find_instruction(&self, address: u64) -> Option<Rc<Instruction>> {
         self.text_section
             .iter()
             .find(|x| x.ip() >= address && address < (x.ip() - x.len() as u64))
+            .cloned()
     }
 
     pub fn get_file_locations(&self, path: impl AsRef<Path>) -> Vec<&SourceLocation> {
@@ -146,7 +148,13 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
                     );
                 super::entrypoints::get_location(address, resolve_info)
             }
-            "text_section" => super::entrypoints::text_section(resolve_info),
+            "text_section" => {
+                let text_section = self.text_section.clone();
+                let iter = text_section
+                    .into_iter()
+                    .map(|x| Vertex::DecodedInstruction(x.clone()));
+                Box::new(iter)
+            }
             _ => {
                 unreachable!(
                     "attempted to resolve starting vertices for unexpected edge name: {edge_name}"
