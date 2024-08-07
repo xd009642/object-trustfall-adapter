@@ -1,10 +1,10 @@
+use super::vertex::Vertex;
+use iced_x86::{Formatter, NasmFormatter};
 use std::sync::Arc;
 use trustfall::{
     provider::{AsVertex, ContextIterator, ContextOutcomeIterator, DataContext, ResolveInfo},
     FieldValue,
 };
-
-use super::vertex::Vertex;
 
 pub(super) fn resolve_decoded_instruction_property<'a, V: AsVertex<Vertex> + 'a>(
     contexts: ContextIterator<'a, V>,
@@ -38,9 +38,14 @@ pub(super) fn resolve_decoded_instruction_property<'a, V: AsVertex<Vertex> + 'a>
             );
             |v: DataContext<V>| match v.active_vertex() {
                 Some(Vertex::DecodedInstruction(instr)) => {
-                    let operands = vec![];
-                    (v.clone(), FieldValue::List(operands.into()));
-                    todo!("Not a real operands")
+                    let mut operands = String::new();
+                    let mut fmt = NasmFormatter::new();
+                    fmt.format_all_operands(instr, &mut operands);
+                    let operands = operands
+                        .split(",")
+                        .map(|x| FieldValue::String(x.into()))
+                        .collect::<Vec<_>>();
+                    (v.clone(), FieldValue::List(operands.into()))
                 }
                 None => (v, FieldValue::Null),
                 Some(vertex) => unreachable!("Invalid vertex: {:?}", vertex),
