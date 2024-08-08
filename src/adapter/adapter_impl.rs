@@ -84,8 +84,14 @@ impl Adapter {
             .collect()
     }
 
-    pub fn get_file_instructions(&self) -> Vec<&Instruction> {
-        todo!()
+    pub fn get_file_instructions(&self, path: PathBuf) -> Vec<Rc<Instruction>> {
+        let iter = self
+            .debug_info
+            .iter()
+            .filter(|(_k, x)| x.iter().any(|y| y.file == path))
+            .map(|(k, _)| k);
+
+        iter.filter_map(|x| self.find_instruction(*x)).collect()
     }
 }
 
@@ -110,7 +116,10 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
                     .expect(
                         "unexpected null or other incorrect datatype for Trustfall type 'String!'",
                     );
-                let it  = self.get_file_locations(file.into()).into_iter().map(|x| Vertex::SourceLocation(x.clone()));
+                let it = self
+                    .get_file_instructions(file.into())
+                    .into_iter()
+                    .map(|x| Vertex::DecodedInstruction(x));
                 Box::new(it)
             }
             "getFileLocations" => {
@@ -123,7 +132,11 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
                     .expect(
                         "unexpected null or other incorrect datatype for Trustfall type 'String!'",
                     );
-                super::entrypoints::get_file_locations(file, resolve_info)
+                let it = self
+                    .get_file_locations(file.into())
+                    .into_iter()
+                    .map(|x| Vertex::SourceLocation(x));
+                Box::new(it)
             }
             "getInstruction" => {
                 let address: i64 = parameters
@@ -135,10 +148,13 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
                     .expect(
                         "unexpected null or other incorrect datatype for Trustfall type 'Int!'",
                     );
-                super::entrypoints::get_instruction(address, resolve_info)
+                let instruction = self
+                    .find_instruction(address as u64)
+                    .map(|x| Vertex::DecodedInstruction(x));
+                Box::new(instruction.into_iter())
             }
             "getLocation" => {
-                let address: i64 = parameters
+                let address = parameters
                     .get("address")
                     .expect(
                         "failed to find parameter 'address' when resolving 'getLocation' starting vertices",
@@ -146,8 +162,13 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
                     .as_i64()
                     .expect(
                         "unexpected null or other incorrect datatype for Trustfall type 'Int!'",
-                    );
-                super::entrypoints::get_location(address, resolve_info)
+                    ) as u64;
+                match self.debug_info.get(&address) {
+                    Some(val) => {
+                        Box::new(val.clone().into_iter().map(|x| Vertex::SourceLocation(x)))
+                    }
+                    None => Box::new(std::iter::empty()),
+                }
             }
             "text_section" => {
                 let text_section = self.text_section.clone();
