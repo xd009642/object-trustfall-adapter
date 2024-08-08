@@ -125,3 +125,15 @@ then properties doesn't think they've got more guarantees from the tests than
 they really do. Oh I can put a TODO in one of my match arms and it passes the
 test so the properties don't even have to be fully implemented! Yeah good to
 note this more in depth.
+
+Right all properties implemented. It would be nice to have a view on how I can
+test these more thoroughly but my feeling right now is that it's better to
+just do some integration tests in the form of actual queries.
+
+## Adapter
+
+The lifetime and returning an iterator is a bit of a pain when implementing
+adapter but collectubg a vec of results and then returning 
+`Box::new(res.into_iter())` seems to work well enough. If I really fiddle
+with it I could possibly make it lazier, but it might be hard as the result
+lifetime is different to the self lifetime.

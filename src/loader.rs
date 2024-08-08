@@ -6,6 +6,7 @@ use object::{read::ObjectSection, Object};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
+use std::rc::Rc;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -19,7 +20,7 @@ pub struct DecodedInstruction {
 pub(crate) fn get_addresses_from_program<R, Offset>(
     prog: IncompleteLineProgram<R>,
     debug_strs: &DebugStr<R>,
-    result: &mut BTreeMap<u64, Vec<SourceLocation>>,
+    result: &mut BTreeMap<u64, Vec<Rc<SourceLocation>>>,
 ) -> Result<()>
 where
     R: Reader<Offset = Offset>,
@@ -60,7 +61,7 @@ where
                             line: line.get() as usize,
                             column,
                         };
-                        result.entry(address).or_default().push(loc);
+                        result.entry(address).or_default().push(loc.into());
                     }
                 }
             }
@@ -71,7 +72,7 @@ where
 
 pub(crate) fn get_line_addresses<'data>(
     obj: &'data impl object::read::Object<'data>,
-) -> anyhow::Result<BTreeMap<u64, Vec<SourceLocation>>> {
+) -> anyhow::Result<BTreeMap<u64, Vec<Rc<SourceLocation>>>> {
     let endian = if obj.is_little_endian() {
         RunTimeEndian::Little
     } else {

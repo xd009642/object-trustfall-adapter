@@ -25,7 +25,7 @@ static SCHEMA: OnceLock<Schema> = OnceLock::new();
 #[non_exhaustive]
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Adapter {
-    pub debug_info: BTreeMap<u64, Vec<SourceLocation>>, // Address to code region
+    pub debug_info: BTreeMap<u64, Vec<Rc<SourceLocation>>>, // Address to code region
     pub text_section: Vec<Rc<Instruction>>,
 }
 
@@ -77,10 +77,10 @@ impl Adapter {
             .cloned()
     }
 
-    pub fn get_file_locations(&self, path: impl AsRef<Path>) -> Vec<&SourceLocation> {
+    pub fn get_file_locations(&self, path: PathBuf) -> Vec<Rc<SourceLocation>> {
         self.debug_info
             .values()
-            .flat_map(|x| x.iter().filter(|y| y.file.as_path() == path.as_ref()))
+            .flat_map(|x| x.iter().filter(|y| y.file == path).cloned())
             .collect()
     }
 
@@ -110,7 +110,8 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
                     .expect(
                         "unexpected null or other incorrect datatype for Trustfall type 'String!'",
                     );
-                super::entrypoints::get_file_instructions(file, resolve_info)
+                let it  = self.get_file_locations(file.into()).into_iter().map(|x| Vertex::SourceLocation(x.clone()));
+                Box::new(it)
             }
             "getFileLocations" => {
                 let file: &str = parameters
