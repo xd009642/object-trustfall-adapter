@@ -1,9 +1,8 @@
 use super::vertex::Vertex;
 use super::SourceLocation;
 use crate::loader::*;
-use anyhow::Context;
 use gimli::*;
-use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
+use iced_x86::{Decoder, DecoderOptions, Instruction};
 use object::{read::ObjectSection, Object};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};

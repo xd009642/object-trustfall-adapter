@@ -1,7 +1,5 @@
 use object_trustfall_adapter::adapter::Adapter;
 use std::collections::BTreeMap;
-use std::fs::File;
-use std::io::{BufWriter, Write};
 use std::sync::Arc;
 use trustfall::{execute_query, FieldValue};
 

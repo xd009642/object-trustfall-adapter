@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 mod adapter_impl;
 mod edges;
-mod entrypoints;
 mod properties;
 mod vertex;
 

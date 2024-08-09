@@ -1,12 +1,10 @@
 use crate::adapter::SourceLocation;
 use anyhow::Context;
 use gimli::*;
-use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
 use object::{read::ObjectSection, Object};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::rc::Rc;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
