@@ -6,7 +6,7 @@ use gimli::*;
 use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
 use object::{read::ObjectSection, Object};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -77,7 +77,7 @@ impl Adapter {
             .cloned()
     }
 
-    pub fn get_file_locations(&self, path: PathBuf) -> Vec<Rc<SourceLocation>> {
+    pub fn get_file_locations(&self, path: PathBuf) -> BTreeSet<Rc<SourceLocation>> {
         self.debug_info
             .values()
             .flat_map(|x| x.iter().filter(|y| y.file == path).cloned())
@@ -105,7 +105,14 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
         resolve_info: &ResolveInfo,
     ) -> VertexIterator<'a, Self::Vertex> {
         match edge_name.as_ref() {
-            "debug_info" => super::entrypoints::debug_info(resolve_info),
+            "debug_info" => {
+                let locations = self
+                    .debug_info
+                    .values()
+                    .flat_map(|x| x.iter().map(|x| Vertex::SourceLocation(x.clone())))
+                    .collect::<Vec<_>>();
+                Box::new(locations.into_iter())
+            }
             "getFileInstructions" => {
                 let file: &str = parameters
                     .get("file")

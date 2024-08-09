@@ -33,7 +33,6 @@ where
         while let Ok(Some((header, &ln_row))) = sm.next_row() {
             // If this row isn't useful move on
             if !ln_row.is_stmt() || ln_row.line().is_none() {
-                println!("Useless: {:?}", ln_row);
                 continue;
             }
             if let Some(file) = ln_row.file(header) {

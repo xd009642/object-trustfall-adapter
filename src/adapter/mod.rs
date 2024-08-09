@@ -13,7 +13,7 @@ mod tests;
 pub use adapter_impl::Adapter;
 pub use vertex::Vertex;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Ord, PartialOrd, Eq, PartialEq, Hash, Deserialize, Serialize)]
 pub struct SourceLocation {
     pub file: PathBuf,
     pub line: usize,

@@ -19,6 +19,61 @@ to get to work.
 
 ## Intial Thoughts on Generated Code
 
+First the schema:
+
+```
+schema {
+    query: RootSchemaQuery 
+}
+
+type RootSchemaQuery {
+    text_section: [DecodedInstruction!]!
+
+    getInstruction(address: Int!): DecodedInstruction
+
+    debug_info: [SourceLocation!]!
+    
+    getLocation(address: Int!): SourceLocation
+    getFileLocations(file: String!): [SourceLocation]
+    getFileInstructions(file: String!): [DecodedInstruction]
+
+}
+
+type SourceLocation {
+    """
+    The name of the source code file
+    """
+    file: String!
+    """
+    The start line of the location
+    """
+    line: Int!
+    """
+    The column used - or null if this is a leftmost column
+    """
+    column: Int
+}
+
+type DecodedInstruction {
+    """
+    Address in memory of the instruction (this is the same as the Instruction Pointer)
+    """
+    address: Int!
+    """
+    Name of the instruction (in NASM)
+    """
+    name: String!
+    """
+    Operands of the instruction
+    """
+    operands: [String]
+    """
+    Length of the instruction in bytes
+    """
+    length: Int!
+}
+```
+
 1. In `src/adapter/entrypoints.rs` I would expect the type the query is
 implemented on to be present in the function args to run the query on the type.
 But all I have is the query args and a `ResolveInfo` type. Maybe this is where I
@@ -130,10 +185,159 @@ Right all properties implemented. It would be nice to have a view on how I can
 test these more thoroughly but my feeling right now is that it's better to
 just do some integration tests in the form of actual queries.
 
-## Adapter
+### Adapter
 
 The lifetime and returning an iterator is a bit of a pain when implementing
 adapter but collectubg a vec of results and then returning 
 `Box::new(res.into_iter())` seems to work well enough. If I really fiddle
 with it I could possibly make it lazier, but it might be hard as the result
 lifetime is different to the self lifetime.
+
+## Using it 
+
+### Simple Test Program
+
+So it would be nice if `trustfall::execute_query` had some example code in the
+docs. Not sure how many people are using trustfall from Rust code but it seems
+there's some gaps there (unless I'm just missing something in the docs).
+
+Okay so here's my first attempt (I do not know GraphQL so this is very much me
+feeling my way around it):
+
+```rust
+fn main() -> anyhow::Result<()> {
+    let object = Arc::new(Adapter::load("target/debug/examples/basic")?);
+
+    let query = "
+        query Query($file: String) {
+            getFileLocations(file: $file) {
+                line,
+            }
+        }
+        ";
+
+    let variables = [("file", FieldValue::String("basic.rs".into()))].into_iter().collect();
+
+    let result = execute_query(Adapter::schema(), object, query, variables).unwrap();
+   
+    let lines = result.collect::<Vec<_>>();
+    println!("Basic.rs lines: {:?}", lines);
+    Ok(())
+}
+```
+
+And I got:
+
+```
+thread 'main' panicked at examples/basic.rs:20:77:
+called `Result::unwrap()` on an `Err` value: Input contains multiple operation blocks, this is not supported
+
+Caused by:
+    Input contains multiple operation blocks, this is not supported
+```
+
+Remove the outer block and do:
+
+```rust
+let query = "
+    {
+        getFileLocations(file: String) {
+            line,
+        }
+    }
+    ";
+```
+
+And our error changes to:
+
+```
+thread 'main' panicked at /home/xd009642/.cargo/registry/src/index.crates.io-6f17d22bba15001f/trustfall_core-0.7.1/src/ir/types/base.rs:380:17:
+not implemented: enum values are not currently supported: String! Enum("String")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+```
+
+Okay my syntax is clearly a bit wonky. Lets backtrack and start from a
+hardcoded value:
+
+```
+    let query = "
+        {
+            getFileLocations(file: \"examples/basic.rs\") {
+                line,
+            }
+        }
+        ";
+```
+
+This looks a bit better but we get:
+
+```
+Basic.rs lines: [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}]
+```
+
+Which is a bit odd...
+
+I later found I was missing an `@output` tag so the query should have been `line @output` instead of just `line`.
+
+With that solved I went onto my next challenge.
+
+### Implementing addr2line
+
+Here I was determined to get input arguments to a query working so I got to work with an initial pass of:
+
+```rust
+fn main() {
+    let file = std::env::args().nth(1).expect("no object file given");
+    let addr = std::env::args().nth(2).expect("no address given").parse::<u64>().expect("invalid address given");
+
+    let object = Arc::new(Adapter::load(file).expect("Couldn't load file"));
+
+    let query = "
+        {
+            getLocation(address: \"$addr\") {
+                file @output,
+                line @output,
+                column @output,
+            }
+        }
+        ";
+
+
+    let variables = [("addr", FieldValue::Int64(addr as i64))].into_iter().collect();
+
+    let result = execute_query(Adapter::schema(), object.clone(), query, variables).unwrap();
+   
+    let lines = result.collect::<Vec<_>>();
+    if lines.is_empty() {
+        panic!("No line for given address");
+    } else {
+        println!("{:?}", lines[0]);
+    }
+}
+```
+
+I did arrive on the quotes around addr after some experimentation but it's wrong. 
+
+```
+called `Result::unwrap()` on an `Err` value: Invalid value for edge parameter address on edge getLocation. Expected a value of type Int!, but got: String("$addr")
+```
+
+It complains the type is a string. Removing the quotes however gives me an
+invalid value:
+
+```
+thread 'main' panicked at examples/addr2line.rs:29:85:
+called `Result::unwrap()` on an `Err` value: Field getLocation received an invalid value for argument address: $addr
+
+Caused by:
+    Field getLocation received an invalid value for argument address: $addr
+```
+
+## Future Challenges
+
+I'd like to be able to query a function in an executable and get a control flow
+graph. This would involve querying a sequence of instructions and generating a
+graph from it. 
+
+> How does `trustfall_stubgen` handle me updating the schema and queries. Will
+> it just wipe out my code?
