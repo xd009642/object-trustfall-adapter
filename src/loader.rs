@@ -4,7 +4,7 @@ use gimli::*;
 use object::{read::ObjectSection, Object};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::{PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
