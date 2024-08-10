@@ -333,6 +333,15 @@ Caused by:
     Field getLocation received an invalid value for argument address: $addr
 ```
 
+In talking with Predrag
+
+> Ah, GraphQL variables don't work
+> You have to use literals for edge parameters
+> That's an open to-do item, and a surprising amount of work to get right
+
+Okay so with a simple change to use `format!` to generate a query string with
+the address in we now have a working query!
+
 ## Future Challenges
 
 I'd like to be able to query a function in an executable and get a control flow

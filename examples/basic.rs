@@ -16,9 +16,7 @@ fn main() -> anyhow::Result<()> {
         }
         ";
 
-    let variables: BTreeMap<Arc<str>, FieldValue> = BTreeMap::new(); // [("file", FieldValue::String("basic.rs".into()))].into_iter().collect();
-                                                                     //let variables = [("file", FieldValue::String("basic.rs".into()))].into_iter().collect();
-
+    let variables: BTreeMap<Arc<str>, FieldValue> = BTreeMap::new();
     let result = execute_query(Adapter::schema(), object.clone(), query, variables).unwrap();
 
     let lines = result.collect::<Vec<_>>();

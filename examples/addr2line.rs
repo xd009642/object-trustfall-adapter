@@ -1,4 +1,5 @@
 use object_trustfall_adapter::adapter::Adapter;
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use trustfall::{execute_query, FieldValue};
 
@@ -12,22 +13,21 @@ fn main() {
 
     let object = Arc::new(Adapter::load(file).expect("Couldn't load file"));
 
-    let query = "
-        {
-            getLocation(address: $addr) {
+    let query = format!(
+        "
+        {{
+            getLocation(address: {}) {{
                 file @output,
                 line @output,
                 column @output,
-            }
-        }
-        ";
+            }}
+        }}
+        ",
+        addr
+    );
 
-    let variables = [("addr", FieldValue::Int64(addr as i64))]
-        .into_iter()
-        .collect();
-    println!("{:?}", variables);
-
-    let result = execute_query(Adapter::schema(), object.clone(), query, variables).unwrap();
+    let variables: BTreeMap<Arc<str>, FieldValue> = BTreeMap::new();
+    let result = execute_query(Adapter::schema(), object.clone(), &query, variables).unwrap();
 
     let lines = result.collect::<Vec<_>>();
     if lines.is_empty() {
