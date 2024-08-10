@@ -1,5 +1,5 @@
 use glob::glob;
-use object_trustfall_adapter::loader::ObjectFile;
+use object_trustfall_adapter::adapter::Adapter as ObjectFile;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -47,7 +47,7 @@ pub struct Trace {
     /// Line the trace is on in the file
     pub line: usize,
     /// Optional address showing location in the test artefact
-    pub address: Vec<usize>,
+    pub address: Vec<u64>,
     /// Length of the instruction (useful to get entire condition/branch)
     pub length: usize,
 }
