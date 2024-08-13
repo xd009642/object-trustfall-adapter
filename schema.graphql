@@ -25,6 +25,10 @@ type Function {
     name: String!
     stack_size: Int!
     instructions: [DecodedInstruction]
+    """
+    Thought here is that the block will refer to it's children as each function will have one root block
+    """
+    basic_blocks: BasicBlock 
 }
 
 type SourceLocation {
@@ -40,6 +44,12 @@ type SourceLocation {
     The column used - or null if this is a leftmost column
     """
     column: Int
+}
+
+type BasicBlock {
+    base_address: Int!
+    instructions: [DecodedInstruction]
+    children: [BasicBlock]
 }
 
 type DecodedInstruction {
