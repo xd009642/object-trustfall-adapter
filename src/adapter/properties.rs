@@ -6,6 +6,23 @@ use trustfall::{
     FieldValue,
 };
 
+pub(super) fn resolve_basic_block_property<'a, V: AsVertex<Vertex> + 'a>(
+    contexts: ContextIterator<'a, V>,
+    property_name: &str,
+    _resolve_info: &ResolveInfo,
+) -> ContextOutcomeIterator<'a, V, FieldValue> {
+    match property_name {
+        "base_address" => {
+            todo!("implement property 'base_address' in fn `resolve_basic_block_property()`")
+        }
+        _ => {
+            unreachable!(
+                "attempted to read unexpected property '{property_name}' on type 'BasicBlock'"
+            )
+        }
+    }
+}
+
 pub(super) fn resolve_decoded_instruction_property<'a, V: AsVertex<Vertex> + 'a>(
     contexts: ContextIterator<'a, V>,
     property_name: &str,
@@ -58,6 +75,27 @@ pub(super) fn resolve_decoded_instruction_property<'a, V: AsVertex<Vertex> + 'a>
         }
     };
     Box::new(contexts.map(func))
+}
+
+pub(super) fn resolve_function_property<'a, V: AsVertex<Vertex> + 'a>(
+    contexts: ContextIterator<'a, V>,
+    property_name: &str,
+    _resolve_info: &ResolveInfo,
+) -> ContextOutcomeIterator<'a, V, FieldValue> {
+    match property_name {
+        "address" => {
+            todo!("implement property 'address' in fn `resolve_function_property()`")
+        }
+        "name" => todo!("implement property 'name' in fn `resolve_function_property()`"),
+        "stack_size" => {
+            todo!("implement property 'stack_size' in fn `resolve_function_property()`")
+        }
+        _ => {
+            unreachable!(
+                "attempted to read unexpected property '{property_name}' on type 'Function'"
+            )
+        }
+    }
 }
 
 pub(super) fn resolve_source_location_property<'a, V: AsVertex<Vertex> + 'a>(
