@@ -6,6 +6,26 @@ use trustfall::{
     FieldValue,
 };
 
+pub(super) fn resolve_basic_block_property<'a, V: AsVertex<Vertex> + 'a>(
+    contexts: ContextIterator<'a, V>,
+    property_name: &str,
+    _resolve_info: &ResolveInfo,
+) -> ContextOutcomeIterator<'a, V, FieldValue> {
+    let func = match property_name {
+        "base_address" => |v: DataContext<V>| match v.active_vertex() {
+            Some(Vertex::BasicBlock(block)) => (v.clone(), FieldValue::Uint64(block.base_address)),
+            None => (v, FieldValue::Null),
+            Some(vertex) => unreachable!("Invalid vertex: {:?}", vertex),
+        },
+        _ => {
+            unreachable!(
+                "attempted to read unexpected property '{property_name}' on type 'BasicBlock'"
+            )
+        }
+    };
+    Box::new(contexts.map(func))
+}
+
 pub(super) fn resolve_decoded_instruction_property<'a, V: AsVertex<Vertex> + 'a>(
     contexts: ContextIterator<'a, V>,
     property_name: &str,
@@ -54,6 +74,38 @@ pub(super) fn resolve_decoded_instruction_property<'a, V: AsVertex<Vertex> + 'a>
         _ => {
             unreachable!(
                 "attempted to read unexpected property '{property_name}' on type 'DecodedInstruction'"
+            )
+        }
+    };
+    Box::new(contexts.map(func))
+}
+
+pub(super) fn resolve_function_property<'a, V: AsVertex<Vertex> + 'a>(
+    contexts: ContextIterator<'a, V>,
+    property_name: &str,
+    _resolve_info: &ResolveInfo,
+) -> ContextOutcomeIterator<'a, V, FieldValue> {
+    let func = match property_name {
+        "address" => |v: DataContext<V>| match v.active_vertex() {
+            Some(Vertex::Function(func)) => (v.clone(), FieldValue::Uint64(func.address)),
+            None => (v, FieldValue::Null),
+            Some(vertex) => unreachable!("Invalid vertex: {:?}", vertex),
+        },
+        "name" => |v: DataContext<V>| match v.active_vertex() {
+            Some(Vertex::Function(func)) => {
+                (v.clone(), FieldValue::String(Arc::from(func.name.as_str())))
+            }
+            None => (v, FieldValue::Null),
+            Some(vertex) => unreachable!("Invalid vertex: {:?}", vertex),
+        },
+        "stack_size" => |v: DataContext<V>| match v.active_vertex() {
+            Some(Vertex::Function(func)) => (v.clone(), FieldValue::Uint64(func.stack_size)),
+            None => (v, FieldValue::Null),
+            Some(vertex) => unreachable!("Invalid vertex: {:?}", vertex),
+        },
+        _ => {
+            unreachable!(
+                "attempted to read unexpected property '{property_name}' on type 'Function'"
             )
         }
     };

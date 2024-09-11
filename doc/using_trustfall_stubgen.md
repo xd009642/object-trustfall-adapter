@@ -350,3 +350,26 @@ graph from it.
 
 > How does `trustfall_stubgen` handle me updating the schema and queries. Will
 > it just wipe out my code?
+
+## Thoughts on Iterative Updates
+
+Now I'm updating the schema and looking to update my code there's a thought I
+have. It would be nice if I could specify my existing generated adapter with the
+impl filled in and have it genertae some stuff in place.
+
+If I just add a new query and don't change anything else then that's just an
+addition to the match arm in the adapter impl and maybe some extra things in
+some of the other files. 
+
+For changing existing queries (adding new args etc), I'm wondering on what a
+simple approach could be. Generating the source files and generating a
+diff for merging them into the current implementation might be nice. It could
+fit into peoples existing editor flows for handling merge conflicts. Git not
+knowing it's in a merge-conflict-esque state might just lead to people missing
+some of the diffs and doing dumb auto commits of inline diffs maybe? 
+
+Of course using syn we can parse the existing files and take the generated code
+(assuming it's generated via something in the syn/quote ecosystem already) and
+implement some sort of syn visitor to go over and try to smart merge things in
+a structurally aware manner. This would take substantial implementation effort
+in a library API that can be described as painful at best.

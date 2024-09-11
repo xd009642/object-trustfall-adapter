@@ -202,7 +202,17 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
             return resolve_property_with(contexts, |vertex| vertex.typename().into());
         }
         match type_name.as_ref() {
+            "BasicBlock" => super::properties::resolve_basic_block_property(
+                contexts,
+                property_name.as_ref(),
+                resolve_info,
+            ),
             "DecodedInstruction" => super::properties::resolve_decoded_instruction_property(
+                contexts,
+                property_name.as_ref(),
+                resolve_info,
+            ),
+            "Function" => super::properties::resolve_function_property(
                 contexts,
                 property_name.as_ref(),
                 resolve_info,
@@ -229,6 +239,18 @@ impl<'a> trustfall::provider::Adapter<'a> for Adapter {
         resolve_info: &ResolveEdgeInfo,
     ) -> ContextOutcomeIterator<'a, V, VertexIterator<'a, Self::Vertex>> {
         match type_name.as_ref() {
+            "BasicBlock" => super::edges::resolve_basic_block_edge(
+                contexts,
+                edge_name.as_ref(),
+                parameters,
+                resolve_info,
+            ),
+            "Function" => super::edges::resolve_function_edge(
+                contexts,
+                edge_name.as_ref(),
+                parameters,
+                resolve_info,
+            ),
             _ => {
                 unreachable!(
                     "attempted to resolve edge '{edge_name}' on unexpected type: {type_name}"
